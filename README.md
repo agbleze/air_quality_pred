@@ -3,3 +3,5 @@ Air quality prediction repo
 
 ## How to use the code
 
+
+# How to run code
