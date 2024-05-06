@@ -1,5 +1,6 @@
 # air_quality_pred
 Air quality prediction repo
+Prediction of pollutants from satellite images
 
 ## How to use the code
 
@@ -8,4 +9,7 @@ Air quality prediction repo
 
 
 # How to test code
+
+
+
 
