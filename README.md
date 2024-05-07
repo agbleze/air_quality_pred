@@ -10,6 +10,8 @@ Prediction of pollutants from satellite images
 
 # How to test code
 
+# License 
+
 
 
 
