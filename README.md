@@ -12,6 +12,7 @@ To run the code, you need to create a venv environment and install the packages 
 # How to test code
 
 # License 
+MIT
 
 
 
