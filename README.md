@@ -3,6 +3,7 @@ Air quality prediction repo
 Prediction of pollutants from satellite images
 
 ## How to use the code
+run train.py
 
 
 # How to run code
