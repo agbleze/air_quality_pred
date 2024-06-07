@@ -692,7 +692,7 @@ holiday_dict = {"holiday_name": holiname_lst, "holiday_desc": holidesc_lst,
 holiday_df = pd.DataFrame(holiday_dict)
 
 #%%
-holiday_df = pd.read_csv("/home/lin/codebase/air_quality_pred/holiday.csv")
+holiday_df = pd.read_csv("/home/lin/air_quality_pred/holiday.csv")
 #%%
 unlist_holidaytype_values = lambda x: x["holiday_type"][0]
 
@@ -1198,7 +1198,7 @@ def add_outlier_probability_features(data, global_proba_day_has_isoutier_df,
                     )
     return data
 #%%
-test_selected_df = test_df[all_selected_feat]
+test_selected_df = test_df[all_selected_feat[:-1]]
 test_selected_df = create_missing_value_features(data=test_selected_df)
 test_df_with_features = create_date_features(test_selected_df)
 test_df_with_features = add_outlier_probability_features(data=test_df_with_features, 
@@ -1506,7 +1506,13 @@ for col in cat_feats:
 
 for col in cat_feats:
     lgbdata[col] = lgbdata[col].astype('int')
-    
+
+
+#%% export data
+lgbdata.to_csv("lgbdata.csv")
+y_target.to_csv("y_target.csv")
+
+#%%    
 def objective(trial,
               cv=5, verbose=3,
               scoring='neg_root_mean_squared_error'):
