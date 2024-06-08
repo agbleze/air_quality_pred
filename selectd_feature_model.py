@@ -1648,3 +1648,23 @@ test_data_median_imputed.drop()
 
 #%%  ########## train model by imputing outliers    ##########
 
+import numpy as np
+from sklearn.model_selection import KFold
+
+#%%
+#X = ["a", "b", "c", "d"]
+kf = KFold(n_splits=20)
+
+#%%
+for train, test in kf.split(lgbdata):
+    print("%s %s" % (train, test))
+# %%
+lgbdata["pm2_5"] = y_target
+
+train_lgbdata, test_lgbdata = train_test_split(lgbdata, random_state=42)
+train_lgbdata.to_csv("train_lgbdata.csv", header=True, index=False)
+test_lgbdata.to_csv("test_lgbdata.csv", header=True, index=False)
+
+# %%
+pd.read_csv("/home/lin/air_quality_pred/train_lgbdata.csv")
+# %%
