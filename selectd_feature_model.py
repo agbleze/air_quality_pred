@@ -1649,12 +1649,14 @@ test_data_median_imputed.drop()
 #%%  ########## train model by imputing outliers    ##########
 
 import numpy as np
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, StratifiedKFold
 
 #%%
 #X = ["a", "b", "c", "d"]
 kf = KFold(n_splits=20)
+stratified_kf = StratifiedKFold(n_splits=20)
 
+splits = kf.split(lgbdata)
 #%%
 for train, test in kf.split(lgbdata):
     print("%s %s" % (train, test))
@@ -1667,4 +1669,103 @@ test_lgbdata.to_csv("test_lgbdata.csv", header=True, index=False)
 
 # %%
 pd.read_csv("/home/lin/air_quality_pred/train_lgbdata.csv")
+# %%   ##### use all data for cv  ##########
+training_df, testing_df = train_test_split(all_data_with_holiday_df, test_size=0.1, random_state=42,
+                                           stratify=all_data_with_holiday_df[["is_outlier", 
+                                                                               "is_holiday",
+                                                                               "month"
+                                                                               ]]
+                                           )
+
+
+#%%
+alldata_param_imp_obj = ParameterImputation(data=all_data_with_holiday_df, 
+                                        aggregation_type="median",
+                                        aggregation_var="month", 
+                                        param=columns
+                                        )
+alldata_median_imputed_df = alldata_param_imp_obj.replace_all_missing_values()
+# %%
+stratified_splits = stratified_kf.split(X=alldata_median_imputed_df, 
+                                        y=alldata_median_imputed_df["is_outlier"]
+                                        )
+
+train_cv_idx = []
+test_cv_idx = []
+#%%
+for train_idx, test_idx in stratified_splits:
+    train_cv_idx.append(train_idx)
+    test_cv_idx.append(test_cv_idx)
+
+
+#%%    
+all_data_cv = alldata_median_imputed_df.copy()
+# %%
+len(train_cv_idx)
+# %%
+cat_feats = ["day_name", "month_pm25_rate"]
+labelencoder = LabelEncoder()
+
+for col in cat_feats:
+    all_data_cv[col] = labelencoder.fit_transform(all_data_cv[col])
+
+for col in cat_feats:
+    all_data_cv[col] = all_data_cv[col].astype('int')
+# %%
+#low_miss_feat.append("pm2_5")
+#all_data_cv = all_data_cv[low_miss_feat]
+# %%
+def export_stratified_cv_data(data, stratify_col, n_splits=20, save_dir=None,
+                              selected_export_cols=None
+                              ):
+    stratified_kf = StratifiedKFold(n_splits=n_splits)
+    stratified_splits = stratified_kf.split(X=data, 
+                                        y=data[stratify_col]
+                                        )
+    data_paths = []
+    if not save_dir:
+        save_dir = os.getcwd()
+        
+    for i, (train_idx, test_idx) in enumerate(stratified_splits):
+        trn = data.iloc[train_idx]
+        tsn = data.iloc[test_idx]
+        trn_path = os.path.join(save_dir, f"cv_{i+1}_train.csv")
+        tsn_path = os.path.join(save_dir, f"cv_{i+1}_test.csv")
+        if not selected_export_cols:
+            trn.to_csv(trn_path, header=True, index=False)
+            tsn.to_csv(tsn_path, header=True, index=False)
+            data_paths.append((trn_path, tsn_path))
+        else:
+            trn[selected_export_cols].to_csv(trn_path, header=True, index=False)
+            tsn[selected_export_cols].to_csv(tsn_path, header=True, index=False)
+            data_paths.append((trn_path, tsn_path))
+        
+    return data_paths
+
+
+# %%
+cv_split_paths = export_stratified_cv_data(data=all_data_cv, 
+                                           stratify_col="is_outlier",
+                                            n_splits=20,
+                                            save_dir="/home/lin/LightGBM/cv_splitdata__",
+                                            selected_export_cols=low_miss_feat
+                                            )
+# %%
+import json
+with open("/home/lin/LightGBM/cv_splitdata_path.json", "w") as file:
+    dp = {"cv_paths": cv_split_paths}
+    json.dump(dp, file)
+# %%
+
+with open("/home/lin/LightGBM/cv_splitdata_path.json", "r") as file:
+    cv_pathdata = json.load(file)
+# %%
+for cvpath in cv_pathdata["cv_paths"]:
+    #for trnpath, tsnpath in zip(cvpath):
+    #print(cvpath[0], tsnpath[1])
+    trn_path, tsn_path = cvpath
+    print(trn_path)
+    #print(tsn_path)
+    pd.read_csv(trn_path).describe()
+    #print(pd.read_csv(trn_path).describe())
 # %%
