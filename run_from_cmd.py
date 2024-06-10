@@ -6,6 +6,7 @@ import torch
 import time
 import os
 import json
+import math
 
 hyperparameter_space = {
                         'learning_rate': np.random.uniform(low=0.03, high=1, size=100),
@@ -42,7 +43,7 @@ colsample_bytree= 0.9879171166038214
 min_data_in_leaf= 18
 objective="regression"
 metric="rmse"
-n_estimators=1000
+n_estimators=2000
 #verbosity=-1
 bagging_freq=1
 device="cuda"
@@ -56,17 +57,18 @@ train_data="/home/lin/air_quality_pred/train_lgbdata.csv"
 test_data="/home/lin/air_quality_pred/test_lgbdata.csv"
 header=True
 extra_trees = True
+boosting = "dart"
 
-_learning_rate= np.random.uniform(low=0.03, high=1, size=100)
-_num_leaves= np.random.randint(low=2, high=2**10, size=500)
-_min_data_in_leaf=np.random.randint(low=2, high=300, size=250)
+_learning_rate= np.random.uniform(low=0.0001, high=0.1, size=10000)
+_num_leaves= np.random.randint(low=2, high=2**10, size=500000)
+_min_data_in_leaf=np.random.randint(low=2, high=2000, size=2000)
 #_max_bin=np.random.randint(low=50, high=800, size=700)
-_colsample_bytree=np.random.uniform(low=0.05, high=1.0, size=100)
+_colsample_bytree=np.random.uniform(low=0.1, high=1.0, size=10000)
 #_path_smooth = np.random.randint(low=0, high=10, size=10)
 #_cat_l2 = np.random.randint(low=10, high=300, size=300)
 #_cat_smooth = np.random.randint(low=10, high=300, size=300)
 #_lambda_l2 = np.random.uniform(low=0.01, high=1, size=100)
-_subsample= np.random.uniform(low=0.01, high=1, size=100)
+_subsample= np.random.uniform(low=0.1, high=1, size=10000)
 
 
 
@@ -94,7 +96,8 @@ wandb.login()
 rmse_list = []
 hyperparam_list = []
 num_cv = 10
-num_trials = 301
+num_trials = 300
+tags = ["10 CV "]
 for i in range(1, num_trials+1):
     learning_rate = np.random.choice(_learning_rate)
     num_leaves = np.random.choice(_num_leaves)
@@ -106,7 +109,7 @@ for i in range(1, num_trials+1):
     #cat_l2 = np.random.choice(_cat_l2)
     #cat_smooth = np.random.choice(_cat_smooth)
     #lambda_l2 = np.random.choice(_lambda_l2)
-    model_name = f"CV_LightGBM_model_{i}.txt"
+    model_name = f"CV_LightGBM_model_{boosting}_{i}.txt"
     hyperparameter_space = {
                         'learning_rate': learning_rate,
                         'num_leaves': num_leaves,
@@ -119,7 +122,7 @@ for i in range(1, num_trials+1):
                         #"extra_trees": extra_trees,
                         #"max_bin": max_bin,
                         "model_name": model_name,
-                        "regressor": "lgbr",
+                        "regressor": "lgbr"+boosting,
                         #"path_smooth": path_smooth,
                         #"cat_l2": cat_l2,
                         #"cat_smooth": cat_smooth,
@@ -137,6 +140,7 @@ for i in range(1, num_trials+1):
             res= subprocess.check_output(["./lightgbm", "task=train",
                             #"config=/home/lin/LightGBM/config_gpu.conf",
                             "label_column=name:pm2_5",
+                            f"boosting={boosting}",
                             f"learning_rate={learning_rate}",
                             f"num_leaves={num_leaves}",
                             f"min_data_in_leaf={min_data_in_leaf}",
@@ -185,22 +189,30 @@ for i in range(1, num_trials+1):
                             ])
             
             #print(f"res: {res}")
-            rmse = np.float32(res.decode().split("rmse")[-1].split("\n")[0].split(":")[-1].split(" ")[-1])
-            print(f"Trial {i}: fold {fold+1} rmse: {rmse}")
-            cv_rmse.append(rmse)
+            
+            try:
+                rmse = np.float32(res.decode().split("rmse")[-1].split("\n")[0].split(":")[-1].split(" ")[-1])
+                print(f"Trial {i}: fold {fold+1} rmse: {rmse}")
+                cv_rmse.append(rmse)
+            except ValueError:
+                tags.append("ValueError occurred in rmse collection")
+                print(f"Trial {i}: fold {fold+1} rmse: ValueError occurred in rmse collection")
     avg_cv_rmse = np.mean(cv_rmse)
-    hyperparameter_space["rmse"] = avg_cv_rmse
-    wandb.init(project=project,
-                config=hyperparameter_space,
-                reinit=True, save_code=True,
-                notes="CV with is_outlier used for stratified 20 fold splitting on all data of features with less than 2% missing values",
-                tags=["20 CV "]
-                )
-    wandb.log(hyperparameter_space)#({"rmse": rmse})
+    if math.isnan(avg_cv_rmse): #isinstance(avg_cv_rmse, np.nan):
+        print(f"avg_cv_rmse is nan hence not uploaded")
+    else:
+        hyperparameter_space["rmse"] = avg_cv_rmse
+        wandb.init(project=project,
+                    config=hyperparameter_space,
+                    reinit=True, save_code=True,
+                    notes="CV with is_outlier used for stratified 20 fold splitting on all data of features with less than 2% missing values. Narrowed down param search based on initial training",
+                    tags=tags
+                    )
+        wandb.log(hyperparameter_space)#({"rmse": rmse})
     rmse_list.append(avg_cv_rmse)
     hyperparam_list.append(hyperparameter_space)
     print(f"Trial {i}: {num_cv} fold CV AVG rmse: {avg_cv_rmse}")
-    hyperparam_output_name = os.path.join("/home/lin/LightGBM/cv_hyperparam_output__", f"cv_hyperparam_{i}.json")
+    hyperparam_output_name = os.path.join("/home/lin/LightGBM/cv_hyperparam_output__", f"cv_hyperparam_{boosting}_{i}.json")
     with open(hyperparam_output_name, "w") as file:
         json.dump(hyperparameter_space, file, default=str)
     subprocess.call(["killall", "-9", "lightgbm"])
