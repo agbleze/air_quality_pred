@@ -53,6 +53,7 @@ import logging
 import optuna
 from optuna.integration import WeightsAndBiasesCallback
 import wandb
+import json
 #%%
 def get_missing_data_percent(data: pd.DataFrame, variable: str):
     total_missing = data[variable].isnull().sum()
@@ -416,6 +417,7 @@ for variable_name in all_selected_train_df.columns:
 create_parameter_is_avialable = lambda x: 0 if x is True else 1
 
 def create_missing_value_features(data):
+    data= data.copy()
     for var in data.columns:
         percent_miss = get_missing_data_percent(data=data, variable=var)
         if percent_miss > 0:
@@ -1471,10 +1473,10 @@ print(min(unseen_pred))
 print(len(unseen_pred))
 print(np.mean(unseen_pred))
 #%%
-# preddata = transform_data_for_predict(data=test_df, global_proba_day_has_isoutier_df=global_proba_day_has_isoutier_df,
-#                            day_month_out_nonout_ratio_df=day_month_out_nonout_ratio_df,
-#                            day_month_proba_df=day_month_proba_df
-#                            )
+preddata = transform_data_for_predict(data=test_df, global_proba_day_has_isoutier_df=global_proba_day_has_isoutier_df,
+                            day_month_out_nonout_ratio_df=day_month_out_nonout_ratio_df,
+                            day_month_proba_df=day_month_proba_df
+                            )
 
 #%%
 test_df_with_features[X_features_with_low_missing.columns]
@@ -1751,7 +1753,7 @@ cv_split_paths = export_stratified_cv_data(data=all_data_cv,
                                             selected_export_cols=low_miss_feat
                                             )
 # %%
-import json
+
 with open("/home/lin/LightGBM/cv_splitdata_path.json", "w") as file:
     dp = {"cv_paths": cv_split_paths}
     json.dump(dp, file)
@@ -1768,4 +1770,8 @@ for cvpath in cv_pathdata["cv_paths"]:
     #print(tsn_path)
     pd.read_csv(trn_path).describe()
     #print(pd.read_csv(trn_path).describe())
+# %%
+test_set_cv1_df = pd.read_csv('/home/lin/LightGBM/cv_splitdata__/cv_1_test.csv')
+# %%
+test_set_cv1_df.columns
 # %%
