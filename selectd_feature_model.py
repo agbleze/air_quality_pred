@@ -1220,7 +1220,8 @@ test_df_with_features = train_param_imp_obj.replace_all_missing_values(df_dict=t
 
 #%%
 def transform_data_for_predict(data, global_proba_day_has_isoutier_df,
-                               day_month_out_nonout_ratio_df, day_month_proba_df
+                               day_month_out_nonout_ratio_df, day_month_proba_df,
+                               holiday_df, train_median_records_dict
                                ):
     test_selected_df = create_missing_value_features(data=data)
     test_df_with_features = create_date_features(test_selected_df)
@@ -1232,7 +1233,7 @@ def transform_data_for_predict(data, global_proba_day_has_isoutier_df,
     test_df_with_features = create_month_emission_rate(test_df_with_features)
 
     test_df_with_features = impute_holiday(holiday_df=holiday_df, data=test_df_with_features)
-    test_df_NAfeatures = train_param_imp_obj.get_features_with_missing_values(data=test_df_with_features)
+    test_df_NAfeatures = train_param_imp_obj.get_features_with_missing_values(data=test_df_with_features)  # change train_param_imp_obj
     train_median_records_dict = train_param_imp_obj.df_dict
     test_df_with_features = train_param_imp_obj.replace_all_missing_values(df_dict=train_median_records_dict,
                                                                             empty_feature=test_df_NAfeatures,
@@ -1502,7 +1503,6 @@ from sklearn.preprocessing import LabelEncoder
 cat_feats = ["day_name", "month_pm25_rate"]
 lgbdata = X_features_with_low_missing.copy()
 labelencoder = LabelEncoder()
-
 for col in cat_feats:
     lgbdata[col] = labelencoder.fit_transform(lgbdata[col])
 
@@ -1687,6 +1687,10 @@ alldata_param_imp_obj = ParameterImputation(data=all_data_with_holiday_df,
                                         param=columns
                                         )
 alldata_median_imputed_df = alldata_param_imp_obj.replace_all_missing_values()
+
+#%%
+alldata_median_dict = alldata_param_imp_obj.df_dict
+
 # %%
 stratified_splits = stratified_kf.split(X=alldata_median_imputed_df, 
                                         y=alldata_median_imputed_df["is_outlier"]
@@ -1708,11 +1712,111 @@ len(train_cv_idx)
 cat_feats = ["day_name", "month_pm25_rate"]
 labelencoder = LabelEncoder()
 
-for col in cat_feats:
-    all_data_cv[col] = labelencoder.fit_transform(all_data_cv[col])
+day_name_labelencoder = LabelEncoder()
+month_pm25_rate_labelencoder = LabelEncoder()
+
+day_name_labelencoder.fit(all_data_cv["day_name"])
+month_pm25_rate_labelencoder.fit(all_data_cv["month_pm25_rate"])
+#for col in cat_feats:
+all_data_cv["day_name"] = day_name_labelencoder.transform(all_data_cv["day_name"]) 
+all_data_cv["month_pm25_rate"] = month_pm25_rate_labelencoder.transform(all_data_cv["month_pm25_rate"]) 
 
 for col in cat_feats:
     all_data_cv[col] = all_data_cv[col].astype('int')
+
+#%%
+
+submission_test_df_date_feat = create_date_features(data=test_df)
+submission_test_df_with_missing_feat = create_missing_value_features(data=submission_test_df_date_feat)
+submission_test_df_with_features = create_month_emission_rate(submission_test_df_with_missing_feat)
+submission_test_df_with_features = impute_holiday(holiday_df=holiday_df, data=submission_test_df_with_features)
+
+#%% selected features for missing value imputation median value in every month
+alldata_median_dict['ozone_o3_slant_column_number_density'].to_csv("ozone_o3_slant_column_number_density.csv")
+alldata_median_dict['uvaerosolindex_absorbing_aerosol_index'].to_csv("uvaerosolindex_absorbing_aerosol_index.csv")
+
+
+#%%
+monthly_median_ozone_o3_slant_column_number_density = pd.read_csv("ozone_o3_slant_column_number_density.csv")
+monthly_median_uvaerosolindex_absorbing_aerosol_index = pd.read_csv("uvaerosolindex_absorbing_aerosol_index.csv")
+
+#%%
+median_imput_dict = {"ozone_o3_slant_column_number_density": monthly_median_ozone_o3_slant_column_number_density,
+   "uvaerosolindex_absorbing_aerosol_index": monthly_median_uvaerosolindex_absorbing_aerosol_index
+}
+
+empty_feature = ["ozone_o3_slant_column_number_density", "uvaerosolindex_absorbing_aerosol_index"]
+#%%
+
+def replace_all_missing_values(empty_feature, df_dict,
+                                data
+                                ):
+    if not isinstance(empty_feature, list):
+        empty_feature = [empty_feature]
+    
+    for column in empty_feature:
+        for index, row in data.iterrows():
+            if pd.isnull(row[column]):
+                month = row.month
+                param_imput = df_dict[column]
+                nafill = param_imput[param_imput.month==month][column].values[0]
+                data.loc[index, column] = nafill
+    return data
+
+#%%
+global_proba_day_has_isoutier_df.to_csv("global_proba_day_has_isoutier_df.csv", index=False)
+day_month_out_nonout_ratio_df.to_csv("day_month_out_nonout_ratio_df.csv", index=False)
+day_month_proba_df.to_csv("day_month_proba_df.csv", index=False)
+
+#%%
+
+global_proba_day_has_isoutier_df_rd = pd.read_csv("global_proba_day_has_isoutier_df.csv")
+day_month_out_nonout_ratio_df_rd = pd.read_csv("day_month_out_nonout_ratio_df.csv")
+day_month_proba_df_rd = pd.read_csv("day_month_proba_df.csv")
+#%%
+submission_test_df_with_features = replace_all_missing_values(empty_feature=empty_feature, df_dict=median_imput_dict,
+                                                                data=submission_test_df_with_features
+                                                                )
+
+
+
+#%%
+submission_test_df_with_outlier_features = (submission_test_df_with_features.merge(right=global_proba_day_has_isoutier_df_rd, 
+                                                        left_on="month_day", right_on="month_day",
+                                                        ).merge(right=day_month_out_nonout_ratio_df_rd,
+                                                        left_on="month_day",
+                                                        right_on="month_day"
+                                                        ).merge(right=day_month_proba_df_rd,
+                                                            left_on="month_day",
+                                                            right_on="month_day"
+                                                            )
+                                    )
+
+
+#%%
+test_set_cv1_df = pd.read_csv('/home/lin/LightGBM/cv_splitdata__/cv_1_test.csv')
+
+prediction_cols = test_set_cv1_df.columns.to_list()
+prediction_cols.pop()
+
+#%%
+submission_test_df_with_outlier_features[prediction_cols]
+
+#%%
+cat_feats = ["day_name", "month_pm25_rate"]
+
+for col in cat_feats:
+    submission_test_df_with_outlier_features[col] = labelencoder.transform(submission_test_df_with_outlier_features[col])
+
+#%%
+
+
+#submission_test_df_with_outlier_features["day_name"] = day_name_labelencoder.transform(submission_test_df_with_outlier_features["day_name"])
+submission_test_df_with_outlier_features["month_pm25_rate"] = month_pm25_rate_labelencoder.transform(submission_test_df_with_outlier_features["month_pm25_rate"])
+
+#%%
+for col in cat_feats:
+    submission_test_df_with_outlier_features[col] = submission_test_df_with_outlier_features[col].astype('int')
 # %%
 #low_miss_feat.append("pm2_5")
 #all_data_cv = all_data_cv[low_miss_feat]
@@ -1775,3 +1879,33 @@ test_set_cv1_df = pd.read_csv('/home/lin/LightGBM/cv_splitdata__/cv_1_test.csv')
 # %%
 test_set_cv1_df.columns
 # %%
+params_df = pd.read_csv("/home/lin/LightGBM/wandb_export_2024-06-11T23_48_01.141+02_00.csv")
+# %%
+params_df.sort_values(by="rmse", axis=0, inplace=True)
+# %%
+colsample_bytree = params_df.head(2)["colsample_bytree"].to_list()
+learning_rate = params_df.head(2)["learning_rate"].to_list()
+min_samples_leaf = params_df.head(2)["min_samples_leaf"].to_list()
+num_leaves = params_df.head(2)["num_leaves"].to_list()
+subsample = params_df.head(2)["subsample"].to_list()
+#learning_rate = params_df.head(10)["learning_rate"].to_list()
+#learning_rate = params_df.head(10)["learning_rate"].to_list()
+
+
+
+# %%
+import itertools
+
+param_combine = list(itertools.product(colsample_bytree, learning_rate, min_samples_leaf, num_leaves, subsample))
+# %%
+
+for i in param_combine:
+    print(i)
+len(param_combine)
+# %%
+
+
+
+
+
+
