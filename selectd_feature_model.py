@@ -1811,12 +1811,20 @@ for col in cat_feats:
 #%%
 
 
-#submission_test_df_with_outlier_features["day_name"] = day_name_labelencoder.transform(submission_test_df_with_outlier_features["day_name"])
+submission_test_df_with_outlier_features["day_name"] = day_name_labelencoder.transform(submission_test_df_with_outlier_features["day_name"])
+
+#%%
 submission_test_df_with_outlier_features["month_pm25_rate"] = month_pm25_rate_labelencoder.transform(submission_test_df_with_outlier_features["month_pm25_rate"])
 
 #%%
 for col in cat_feats:
     submission_test_df_with_outlier_features[col] = submission_test_df_with_outlier_features[col].astype('int')
+
+#%%
+#prediction_cols
+submission_test_df_with_outlier_features[prediction_cols].to_csv("transformed_submission_for_prediction.csv", index=False)
+
+
 # %%
 #low_miss_feat.append("pm2_5")
 #all_data_cv = all_data_cv[low_miss_feat]
