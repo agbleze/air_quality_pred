@@ -1706,6 +1706,14 @@ for train_idx, test_idx in stratified_splits:
 
 #%%    
 all_data_cv = alldata_median_imputed_df.copy()
+
+
+#%%
+
+holiday_pm2_5 =  all_data_cv.groupby(by="is_holiday")["pm2_5"].mean().reset_index()
+
+barplot(data_to_plot=holiday_pm2_5, variable_to_plot="is_holiday", ylabel="holiday_pm2_5",
+        y_colname="pm2_5", title="holiday pm25")
 # %%
 len(train_cv_idx)
 # %%
@@ -1799,6 +1807,10 @@ test_set_cv1_df = pd.read_csv('/home/lin/LightGBM/cv_splitdata__/cv_1_test.csv')
 prediction_cols = test_set_cv1_df.columns.to_list()
 prediction_cols.pop()
 
+
+#%%
+
+all_data_cv["is_holiday"]
 #%%
 submission_test_df_with_outlier_features[prediction_cols]
 
@@ -1825,6 +1837,19 @@ for col in cat_feats:
 submission_test_df_with_outlier_features[prediction_cols].to_csv("transformed_submission_for_prediction.csv", index=False)
 
 
+
+#%%
+
+prediction_df_path = "/home/lin/LightGBM/prediction/submission_prediction.csv"
+
+prediction_df = pd.read_csv(prediction_df_path, header=None)
+
+
+#%%
+test_df["pm2_5"] = prediction_df
+
+#%%
+test_df[["id", "pm2_5"]].to_csv("/home/lin/air_quality_pred/submissions/submission15.csv", index=False)
 # %%
 #low_miss_feat.append("pm2_5")
 #all_data_cv = all_data_cv[low_miss_feat]
