@@ -405,6 +405,3 @@ sweep_df
 sweep_df.drop(columns=["params", "time_taken", "epochs"]).style.background_gradient(
     subset=["test_mean_squared_error"], cmap="RdYlGn"
 ).background_gradient(subset=["time_taken_per_epoch", "test_loss"], cmap="RdYlGn_r")
-# %%
-
-# %%
